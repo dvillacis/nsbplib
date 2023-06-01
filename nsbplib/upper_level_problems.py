@@ -1,7 +1,7 @@
 
 import numpy as np
 import pandas as pd
-from nsbplib.data_generation import load_training_data
+from nsbplib.data_generation import load_training_data, load_training_data_deblurring
 from nsbplib.lower_level_problems import get_lower_level_problem
 
 
@@ -147,5 +147,43 @@ class UpperPatchRegLearning(UpperLevelProblem):
             lower_level_problems.append(llproblem)
             
         print(f'Starting optimal reg parameter learning with\ntraining set:{ds_dir}\nproblem_type:{problem_type}\nnum_training_data:{num_training_data}\npatch_size:{px}x{py}')
+        
+        super().__init__(lower_level_problems, true_imgs)
+        
+class UpperScalarDataLearningDeblurring(UpperLevelProblem):
+    def __init__(self, ds_dir, num_training_data:int=1, verbose = False):
+
+        # Define the problem type
+        problem_type='2D_scalar_data_learning_deblurring'
+        
+        # Build Training Data
+        num_training_data, true_imgs, noisy_imgs, ConvOp = load_training_data_deblurring(ds_dir,num_training_data=num_training_data)
+        lower_level_problems = []
+        
+        for i in range(num_training_data):
+            noisy_img = noisy_imgs[i]
+            llproblem = get_lower_level_problem(problem_type, noisy_img, "Img %g" % i,1,1,Op=ConvOp)
+            lower_level_problems.append(llproblem)
+            
+        print(f'Starting optimal parameter learning with\ntraining set:{ds_dir}\nproblem_type:{problem_type}\nnum_training_data:{num_training_data}')
+        
+        super().__init__(lower_level_problems, true_imgs)
+        
+class UpperPatchDataLearningInpainting(UpperLevelProblem):
+    def __init__(self, ds_dir, px, py, num_training_data:int=1, verbose = False):
+
+        # Define the problem type
+        problem_type='2D_patch_data_learning_inpainting'
+        
+        # Build Training Data
+        num_training_data, true_imgs, noisy_imgs, ConvOp = load_training_data_deblurring(ds_dir,num_training_data=num_training_data)
+        lower_level_problems = []
+        
+        for i in range(num_training_data):
+            noisy_img = noisy_imgs[i]
+            llproblem = get_lower_level_problem(problem_type, noisy_img, "Img %g" % i,px,py,Op=ConvOp)
+            lower_level_problems.append(llproblem)
+            
+        print(f'Starting optimal parameter learning with\ntraining set:{ds_dir}\nproblem_type:{problem_type}\nnum_training_data:{num_training_data}\npatch_size:{px}x{py}')
         
         super().__init__(lower_level_problems, true_imgs)

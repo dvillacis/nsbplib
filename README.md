@@ -18,39 +18,51 @@ $ pip install -e .
 
 ## Running prebuilt experiments
 
-* Learning Optimal Scalar Parameter (Data Learning)
+### Learning Optimal Scalar Parameter (Data Learning)
 ```bash
 $ cd experiments
-$ python learn_optimal_scalar_data_parameter.py $dataset_name $output_folder --size_training_set $size_dataset
+$ python experiments/learn_optimal_scalar_data_parameter.py $dataset_name $output_folder --size_training_set $size_dataset
 ```
 
-* Learning Optimal Patch Parameter (Data Learning)
+### Learning Optimal Patch Parameter (Data Learning)
 ```bash
 $ cd experiments
-$ python learn_optimal_patch_data_parameter.py $dataset_name $output_folder --patch_size $patch_size --size_training_set $size_dataset
+$ python experiments/learn_optimal_patch_data_parameter.py $dataset_name $output_folder --patch_size $patch_size --size_training_set $size_dataset
 ```
 
-* Learning Optimal Scalar Parameter (Regularization Learning)
+### Learning Optimal Scalar Parameter (Regularization Learning)
 ```bash
 $ cd experiments
-$ python learn_optimal_scalar_reg_parameter.py $dataset_name $output_folder --size_training_set $size_dataset
+$ python experiments/learn_optimal_scalar_reg_parameter.py $dataset_name $output_folder --size_training_set $size_dataset
 ```
 
-* Learning Optimal Patch Parameter (Regularization Learning)
+### Learning Optimal Patch Parameter (Regularization Learning)
 ```bash
 $ cd experiments
-$ python learn_optimal_patch_reg_parameter.py $dataset_name $output_folder --patch_size $patch_size --size_training_set $size_dataset
+$ python experiments/learn_optimal_patch_reg_parameter.py $dataset_name $output_folder --patch_size $patch_size --size_training_set $size_dataset
+```
+
+### Learning Optimal Scalar Parameter for Deblurring (Data Learning)
+```bash
+$ cd experiments
+$ python experiments/learn_optimal_scalar_data_parameter_deblurring.py $dataset_name $output_folder --size_training_set $size_dataset
+```
+
+### Learning Optimal Patch Parameter for Deblurring (Data Learning)
+```bash
+$ cd experiments
+$ python experiments/learn_optimal_patch_data_parameter_deblurring.py $dataset_name $output_folder --patch_size $patch_size --size_training_set $size_dataset
 ```
 
 ## Plotting the results from output_folder
 For regenerating the plots presented in the paper, there are several scripts that generate the plots and tables
 
-* Plotting scalar cameraman reconstruction
+### Plotting scalar cameraman reconstruction
 ```bash
 $ python plotting/plot_scalar_reconstruction $output_folder/$dataset_name
 ```
 
-* Plotting reconstruction from different models
+### Plotting reconstruction from different models
 ```bash
 $ python plotting/plot_reconstructions $output_folder_1 $output_folder_2 ...
 ```

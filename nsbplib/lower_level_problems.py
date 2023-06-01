@@ -3,6 +3,7 @@ import logging
 import numpy as np
 
 from pylops import Diagonal, Identity, Block
+from pylops.signalprocessing.convolve2d import Convolve2D
 
 from nsbplib.operators.FirstDerivative import FirstDerivative
 from nsbplib.operators.Gradient import Gradient
@@ -11,7 +12,7 @@ from nsbplib.operators.Tgamma import Tgamma
 from nsbplib.operators.ActiveOp import ActiveOp
 from nsbplib.operators.InactiveOp import InactiveOp
 from nsbplib.operators.Patch import Patch
-from nsbplib.solvers.rof.solver import ROFSolver_2D
+from nsbplib.solvers.rof.solver import ROFSolver_2D, TVDeblurring
 import scipy.sparse.linalg as spla
 
 def tv_smooth_subdiff(u,gamma=1000):
@@ -26,7 +27,7 @@ def tv_smooth_subdiff(u,gamma=1000):
     b = np.where((gamma*nu-1 > -1/(2*gamma)) & (gamma*nu-1 <= 1/(2*gamma)),1/nu*(1-0.5*gamma*(1-gamma*nu+1/(2*gamma**2)**2)),a)
     return b*Kxu,b*Kyu
 
-def get_lower_level_problem(problem_type,data,label,px,py):
+def get_lower_level_problem(problem_type,data,label,px,py,Op=None):
     if problem_type == '2D_scalar_data_learning':
         return LowerScalarDataLearning_2D(data,label)
     if problem_type == '2D_scalar_reg_learning':
@@ -35,6 +36,10 @@ def get_lower_level_problem(problem_type,data,label,px,py):
         return LowerPatchDataLearning_2D(data,label,px,py)
     elif problem_type == '2D_patch_reg_learning':
         return LowerPatchRegLearning_2D(data,label,px,py)
+    elif problem_type == '2D_scalar_data_learning_deblurring':
+        return LowerScalarDataLearningDeblurring_2D(data,label,Op=Op)
+    elif problem_type == '2D_patch_data_learning_deblurring':
+        return LowerPatchDataLearningDeblurring_2D(data,label,Op=Op,px=px,py=py)
     else:
         raise RuntimeError('Problem Type not recognized %s' % problem_type)
 
@@ -330,3 +335,135 @@ class LowerScalarRegLearning_2D(LowerLevelProblem):
         grad = reg_par.reduce_from_img(grad)
         # print(f'g_smooth:{grad}')
         return grad
+    
+class LowerScalarDataLearningDeblurring_2D(LowerLevelProblem):
+    r'''
+    Documentation for the LowerScalarDataLearningDeblurring_2D class
+    This class is used to solve the scalar data learning problem with inpainting
+    The class is initialized with the data, the discrete gradient operator K and the mask implemented as a Restriction operator from pylops.
+    The solve method takes the data and regularization parameters and returns the reconstructed image using the Primal-Dual Hybrid Gradient approach.
+    
+    ## Usage
+    ```python
+    from nsbplib.solvers.rof.solver import TVInpainting
+    from nsbplib.operators.FirstDerivative import FirstDerivative
+    from nsbplib.operators.Patch import Patch
+    
+    ```
+    
+    '''
+    def __init__(self, data, label, Op:Convolve2D):
+        self.Kx = FirstDerivative(np.prod(data.shape), dims=data.shape,kind='forward',dir=0)
+        self.Ky = FirstDerivative(np.prod(data.shape), dims=data.shape,kind='forward',dir=1)
+        self.K = Gradient(dims=(data.shape))
+        self.px = 1
+        self.py = 1
+        self.Op = Op
+        self.OpTOp = self.Op.T*self.Op
+        self.solver = TVDeblurring(data,self.K,self.Op)
+        super().__init__(data, label)
+    
+    def __call__(self, param):
+        """
+        Get a new reconstruction from the noisy data
+        """
+        logging.debug(f'Solving lower level problem for {self.label}')
+        data_par = Patch(param,self.px,self.py)
+        reg_par = Patch(np.ones(self.px*self.py),self.px,self.py)
+        self.recon = self.solver.solve(data_par=data_par,reg_par=reg_par)
+    
+    def loss(self, true_data):
+        return np.linalg.norm(self.recon-true_data)**2
+    
+    def grad(self, true_data, param):
+        data_par = Patch(param,self.px,self.py)
+        parameter = data_par.map_to_img(true_data)
+        m,n = self.K.shape
+        L = Diagonal(parameter)*self.RTR
+        T = TOp(self.Kx,self.Ky,self.recon)
+        Act = ActiveOp(self.K,self.recon)
+        Inact = InactiveOp(self.K,self.recon)
+        A = Block([[L,self.K.adjoint()],[Act*self.K-Inact*T,Inact+1e-12*Act]])
+        b = np.concatenate((self.recon.ravel()-true_data.ravel(),np.zeros(m)))
+        p = spla.spsolve(A.tosparse(),b)[:n]
+        #p,exit_code = spla.qmr(A,b)[:n]
+        #print(exit_code)
+        L2 = Diagonal(p)
+        g = L2*(self.recon.ravel() - self.data.ravel())
+        g = data_par.reduce_from_img(g.reshape(true_data.shape)[:-1,:-1])
+        return -g
+    
+    def smooth_grad(self, true_data, param):
+        data_par = Patch(param,self.px,self.py)
+        parameter = data_par.map_to_img(true_data)
+        m,n = self.K.shape
+        L = self.Op.T * Diagonal(parameter) * self.Op
+        T = Tgamma(self.Kx,self.Ky,self.recon)
+        Id = Identity(m)
+        # print(L.shape,K.adjoint().shape,T.shape,Id.shape)
+        A = Block([[L,self.K.adjoint()],[-T,Id]])
+        b = np.concatenate((self.recon.ravel()-true_data.ravel(),np.zeros(m)))
+        p = spla.spsolve(A.tosparse(),b)[:n]
+        L2 = Diagonal(p)
+        grad = L2*(self.recon.ravel()-self.data.ravel())
+        grad = data_par.reduce_from_img(grad.reshape(true_data.shape)[:-1,:-1])
+        return -grad
+    
+class LowerPatchDataLearningDeblurring_2D(LowerLevelProblem):
+    def __init__(self, data, label, Op:Convolve2D, px, py):
+        self.Kx = FirstDerivative(np.prod(data.shape), dims=data.shape,kind='forward',dir=0)
+        self.Ky = FirstDerivative(np.prod(data.shape), dims=data.shape,kind='forward',dir=1)
+        self.K = Gradient(dims=(data.shape))
+        self.px = px
+        self.py = py
+        self.Op = Op
+        self.solver = TVDeblurring(data,self.K,self.Op)
+        super().__init__(data, label)
+        self.data = data.ravel()
+    
+    def __call__(self, param):
+        """
+        Get a new reconstruction from the noisy data
+        """
+        logging.debug(f'Solving lower level problem for {self.label}')
+        data_par = Patch(param,self.px,self.py)
+        reg_par = Patch(np.ones(self.px*self.py),self.px,self.py)
+        self.recon = self.solver.solve(data_par=data_par,reg_par=reg_par)
+    
+    def loss(self, true_data):
+        return np.linalg.norm(self.recon-true_data)**2
+    
+    def grad(self, true_data, param):
+        data_par = Patch(param,self.px,self.py)
+        parameter = data_par.map_to_img(true_data)
+        m,n = self.K.shape
+        L = self.Op.T * Diagonal(parameter) * self.Op
+        T = TOp(self.Kx,self.Ky,self.recon)
+        Act = ActiveOp(self.K,self.recon)
+        Inact = InactiveOp(self.K,self.recon)
+        A = Block([[L,self.K.adjoint()],[Act*self.K-Inact*T,Inact+1e-12*Act]])
+        b = np.concatenate((self.recon.ravel()-true_data.ravel(),np.zeros(m)))
+        p = spla.spsolve(A.tosparse(),b)[:n]
+        #p,exit_code = spla.qmr(A,b)[:n]
+        #print(exit_code)
+        print(f'self.data:{self.data.shape}')
+        L2 = Diagonal(p)
+        g = L2*(self.recon.ravel() - self.mask.T * self.data.ravel())
+        g = data_par.reduce_from_img(g.reshape(true_data.shape))
+        return -g
+    
+    def smooth_grad(self, true_data, param):
+        data_par = Patch(param,self.px,self.py)
+        parameter = data_par.map_to_img(true_data)
+        m,n = self.K.shape
+        L = self.Op.T * Diagonal(parameter) * self.Op
+        T = Tgamma(self.Kx,self.Ky,self.recon)
+        Id = Identity(m)
+        # print(L.shape,K.adjoint().shape,T.shape,Id.shape)
+        A = Block([[L,self.K.adjoint()],[-T,Id]])
+        b = np.concatenate((self.recon.ravel()-true_data.ravel(),np.zeros(m)))
+        p = spla.spsolve(A.tosparse(),b)[:n]
+        L2 = Diagonal(p)
+        grad = L2*(self.recon.ravel()-self.data.ravel())
+        grad = data_par.reduce_from_img(grad.reshape(true_data.shape))
+        return -grad
