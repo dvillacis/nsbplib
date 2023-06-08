@@ -4,7 +4,7 @@ import argparse
 from pathlib import Path
 
 from nsbplib.solvers.nstrbox.solver import solve as nstrbox_solve
-from nsbplib.upper_level_problems import UpperPatchDataLearningInpainting
+from nsbplib.upper_level_problems import UpperPatchDataLearningDeblurring
 from nsbplib.experiment_utils import load_start_parameter, save_nsbpl_results
 
 # Parse arguments
@@ -32,7 +32,7 @@ if args.patch_size < 2:
 
 size_training_set = args.size_training_set
 
-upper_level_problem = UpperPatchDataLearningInpainting(ds_dir=dataset_dir,px=args.patch_size,py=args.patch_size,num_training_data=size_training_set,verbose=True)
+upper_level_problem = UpperPatchDataLearningDeblurring(ds_dir=dataset_dir,px=args.patch_size,py=args.patch_size,num_training_data=size_training_set,verbose=True)
 
 x0 = load_start_parameter(10.0,px=args.patch_size,py=args.patch_size)
 
@@ -42,4 +42,4 @@ true_imgs, noisy_imgs, recons = upper_level_problem.get_training_data()
 extra_data = {'true_imgs':true_imgs,'noisy_imgs':noisy_imgs,'recons':recons}
 
 # Save the results
-save_nsbpl_results(evals=evals,sol=sol,extra_data=extra_data,outfolder=output_dir,run_name=f'{os.path.basename(dataset_dir)}_px{args.patch_size}_py{args.patch_size}_inpainting')
+save_nsbpl_results(evals=evals,sol=sol,extra_data=extra_data,outfolder=output_dir,run_name=f'{os.path.basename(dataset_dir)}_px{args.patch_size}_py{args.patch_size}_deblurring')

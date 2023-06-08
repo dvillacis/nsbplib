@@ -1,6 +1,25 @@
 import os
 import numpy as np
 
+def read_stats_file(stats_path):
+    keywords = ['nfev','nit','njev','n_reg_jev']
+    if not os.path.isfile(stats_path):
+            raise RuntimeError('Cannot find stats: %s' % stats_path)
+    with open(stats_path,'r') as f:
+        lines = f.readlines()
+        for line in lines:
+            if 'n_reg_jev' in line:
+                n_reg_jev = int(line.split(':')[1].strip())
+            elif 'nfev' in line:
+                n_fev = int(line.split(':')[1].strip())
+            elif 'nit' in line:
+                nit = int(line.split(':')[1].strip())
+            elif 'njev' in line:
+                njev = int(line.split(':')[1].strip())
+            else:
+                print('Skipping line...')
+        return n_reg_jev,n_fev,nit,njev
+
 def load_start_parameter(par,px=1,py=1):
     if '.npy' in str(par):
         x0 = np.load(par)
@@ -15,6 +34,7 @@ def load_start_parameter(par,px=1,py=1):
     return x0.ravel()
 
 def save_nsbpl_results(evals,sol,extra_data,outfolder,run_name):
+    print(f'{extra_data["noisy_imgs"].shape=}')
     num_training_samples = str(extra_data['true_imgs'].shape[2])
     # Exporting evals
     if not os.path.exists(os.path.join(outfolder,run_name,num_training_samples)):

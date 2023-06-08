@@ -169,11 +169,11 @@ class UpperScalarDataLearningDeblurring(UpperLevelProblem):
         
         super().__init__(lower_level_problems, true_imgs)
         
-class UpperPatchDataLearningInpainting(UpperLevelProblem):
+class UpperPatchDataLearningDeblurring(UpperLevelProblem):
     def __init__(self, ds_dir, px, py, num_training_data:int=1, verbose = False):
 
         # Define the problem type
-        problem_type='2D_patch_data_learning_inpainting'
+        problem_type='2D_patch_data_learning_deblurring'
         
         # Build Training Data
         num_training_data, true_imgs, noisy_imgs, ConvOp = load_training_data_deblurring(ds_dir,num_training_data=num_training_data)

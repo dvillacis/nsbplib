@@ -81,4 +81,4 @@ ax.set_ylabel('Validation MPSNR')
 # ax.legend()     
 
 # plt.show()
-tikzplotlib.save(f'{plots_output_dir}/validation_mpsnr_vs_dataset_size.tex')
+tikzplotlib.save(f'{plots_output_dir}/training_mpsnr_vs_dataset_size.tex')

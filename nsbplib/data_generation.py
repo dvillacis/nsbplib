@@ -1,7 +1,7 @@
 
 from argparse import ArgumentError
 import numpy as np
-from pylops import Restriction
+from pylops.signalprocessing.convolve2d import Convolve2D
 from os import listdir, pardir
 from os.path import isfile, join, isdir
 
@@ -46,23 +46,27 @@ def load_training_data_deblurring(ds_dir,num_training_data:int=1, lost_domain_si
             img = img / np.amax(img)
             true_imgs.append(img)
     
-    # Restriction operator
+    # Convolution Operator 2D
+    # Blurring guassian kernel
     nx,ny = true_imgs[0].shape
-    start_row = nx//3 - lost_domain_size
-    end_row = nx//3 + lost_domain_size
-    start_col = ny//3 - lost_domain_size
-    end_col = ny//3 + lost_domain_size
-    mask = np.arange(nx*ny).reshape(nx,ny)
-    mask[start_row:end_row,start_col:end_col] = -1
-    R = Restriction(nx*ny,mask[np.where(mask >= 0)],dtype=np.float64)
-     
+    nh = [3, 3]
+    hz = np.exp(-0.01 * np.linspace(-(nh[0] // 2), nh[0] // 2, nh[0]) ** 2)
+    hx = np.exp(-0.01 * np.linspace(-(nh[1] // 2), nh[1] // 2, nh[1]) ** 2)
+    hz /= np.trapz(hz)  # normalize the integral to 1
+    hx /= np.trapz(hx)  # normalize the integral to 1
+    kernel = hz[:, np.newaxis] * hx[np.newaxis, :]
+    # Convolution Operator
+    ConvOp = Convolve2D((nx, ny),h=kernel, offset=(nh[0] // 2, nh[1] // 2), dtype='float64')
+    print(f'Convolution Operator: {ConvOp.shape}')
     noisy_imgs = []
-    noisy_imgs_path = [f for f in sorted(listdir(noisy_imgs_dir)) if isfile(join(noisy_imgs_dir, f))][:num_training_data]
+    noisy_imgs_path = [f for f in sorted(listdir(true_imgs_dir)) if isfile(join(true_imgs_dir, f))][:num_training_data]
     for img_path in sorted(noisy_imgs_path):
         if '.png' in img_path:
-            img = np.array(Image.open(join(noisy_imgs_dir,img_path)).convert('L'))
+            img = np.array(Image.open(join(true_imgs_dir,img_path)).convert('L'))
             img = img / np.amax(img)
-            img = (R.T*(R*img.ravel())).reshape(nx,ny)
-            noisy_imgs.append(img)
-    return len(true_imgs), true_imgs, noisy_imgs, R
+            blur = (ConvOp*img.ravel()).reshape(nx,ny)
+            # noise = np.random.normal(loc=0,scale=0.01,size=img.shape)
+            # noisy = np.clip(img+noise,0,1)
+            noisy_imgs.append(blur)
+    return len(true_imgs), true_imgs, noisy_imgs, ConvOp
     

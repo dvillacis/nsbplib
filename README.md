@@ -72,3 +72,11 @@ This script generates the plot regarding the validation error of the learned par
 
 ```bash
 $ python plotting/plot_validation $validation_dataset_path $output_folder_1 $output_folder_2 ...
+```
+
+## Generating the performance tables
+This script generates the performance tables for the learned parameters for different patch sizes and different training set sizes.
+
+```bash
+$ python tables/generate_performance_tables.py $output_folder_1 $output_folder_2 ...
+```

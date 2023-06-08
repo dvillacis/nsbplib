@@ -19,7 +19,7 @@ class SDL2(ProxOperator):
 
     @_check_tau
     def prox(self,x,tau):
-        rhs = x + tau * self.A.T * Diagonal(self.sigma) * self.b
+        rhs = x + tau * self.A.T * (Diagonal(self.sigma) * self.b)
         lhs = Identity(N=x.shape[0]) + tau * self.A.T * Diagonal(self.sigma) * self.A
         x,exit_code = cg(lhs,rhs)
         if exit_code != 0:
