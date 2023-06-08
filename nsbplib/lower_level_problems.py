@@ -390,8 +390,8 @@ class LowerScalarDataLearningDeblurring_2D(LowerLevelProblem):
         # if exit_code != 0:
         #     print(f'Conjugate gradient for calculating proximal did not converge: {exit_code}')
         # p = p[:n]
-        L2 = Diagonal(p)
-        g = L2*(self.recon.ravel() - self.data.ravel())
+        L2 = Diagonal(self.Op * p)
+        g = L2*(self.Op * self.recon.ravel() - self.data.ravel())
         g = data_par.reduce_from_img(g.reshape(true_data.shape)[:-1,:-1])
         return -g
     
@@ -409,8 +409,8 @@ class LowerScalarDataLearningDeblurring_2D(LowerLevelProblem):
         # if exit_code != 0:
         #     print(f'Conjugate gradient for calculating proximal did not converge: {exit_code}')
         # p = p[:n]
-        L2 = Diagonal(p)
-        grad = L2*(self.recon.ravel()-self.data.ravel())
+        L2 = Diagonal(self.Op * p)
+        grad = L2*(self.Op * self.recon.ravel()-self.data.ravel())
         grad = data_par.reduce_from_img(grad.reshape(true_data.shape)[:-1,:-1])
         return -grad
     
@@ -446,18 +446,18 @@ class LowerPatchDataLearningDeblurring_2D(LowerLevelProblem):
         T = TOp(self.Kx,self.Ky,self.recon)
         Act = ActiveOp(self.K,self.recon)
         Inact = InactiveOp(self.K,self.recon)
-        A = Block([[L,self.K.adjoint()],[Act*self.K-Inact*T,Inact+1e-12*Act]])
+        A = Block([[L,self.K.adjoint()],[Act*self.K-Inact*T,Inact+1e-8*Act]])
         b = np.concatenate((self.recon.ravel()-true_data.ravel(),np.zeros(m)))
-        # p = spla.spsolve(A.tosparse(),b)[:n]
-        p,exit_code = spla.gmres(A,b,maxiter=1000)
-        if exit_code != 0:
-            print(f'GMRES for calculating proximal did not converge: {exit_code}')
-        p = p[:n]
+        p = spla.spsolve(A.tosparse(),b)[:n]
+        # p,exit_code = spla.gmres(A,b,maxiter=2000)
+        # if exit_code != 0:
+        #     print(f'GMRES for calculating proximal did not converge: {exit_code}')
+        # p = p[:n]
         #p,exit_code = spla.qmr(A,b)[:n]
         #print(exit_code)
         # print(f'self.data:{self.data.shape}')
-        L2 = Diagonal(p)
-        g = L2*(self.recon.ravel() - self.data.ravel())
+        L2 = Diagonal(self.Op * p)
+        g = L2*(self.Op * self.recon.ravel() - self.data.ravel())
         g = data_par.reduce_from_img(g.reshape(true_data.shape))
         return -g
     
@@ -470,12 +470,12 @@ class LowerPatchDataLearningDeblurring_2D(LowerLevelProblem):
         Id = Identity(m)
         A = Block([[L,self.K.adjoint()],[-T,Id]])
         b = np.concatenate((self.recon.ravel()-true_data.ravel(),np.zeros(m)))
-        # p = spla.spsolve(A.tosparse(),b)[:n]
-        p,exit_code = spla.gmres(A,b,maxiter=1000)
-        if exit_code != 0:
-            print(f'GMRES for calculating proximal did not converge: {exit_code}')
-        p = p[:n]
-        L2 = Diagonal(p)
-        grad = L2*(self.recon.ravel()-self.data.ravel())
+        p = spla.spsolve(A.tosparse(),b)[:n]
+        # p,exit_code = spla.gmres(A,b,maxiter=1000)
+        # if exit_code != 0:
+        #     print(f'GMRES for calculating proximal did not converge: {exit_code}')
+        # p = p[:n]
+        L2 = Diagonal(self.Op * p)
+        grad = L2*(self.Op * self.recon.ravel()-self.data.ravel())
         grad = data_par.reduce_from_img(grad.reshape(true_data.shape))
         return -grad

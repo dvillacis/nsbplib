@@ -49,7 +49,7 @@ def load_training_data_deblurring(ds_dir,num_training_data:int=1, lost_domain_si
     # Convolution Operator 2D
     # Blurring guassian kernel
     nx,ny = true_imgs[0].shape
-    nh = [3, 3]
+    nh = [5, 5]
     hz = np.exp(-0.01 * np.linspace(-(nh[0] // 2), nh[0] // 2, nh[0]) ** 2)
     hx = np.exp(-0.01 * np.linspace(-(nh[1] // 2), nh[1] // 2, nh[1]) ** 2)
     hz /= np.trapz(hz)  # normalize the integral to 1

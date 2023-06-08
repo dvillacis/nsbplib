@@ -38,5 +38,5 @@ for j,results_dir in enumerate(args.results_dirs):
     cb = plt.colorbar(p,orientation='horizontal',ax=ax[j])
     ax[j].set_title(f'{px}x{py}')
     ax[j].axis('off')
-# plt.show()
-tikzplotlib.save(f'{plots_output_dir}/optimal_patches.tex')
+plt.show()
+# tikzplotlib.save(f'{plots_output_dir}/optimal_patches.tex')
