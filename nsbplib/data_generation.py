@@ -50,11 +50,13 @@ def load_training_data_deblurring(ds_dir,num_training_data:int=1, lost_domain_si
     # Blurring guassian kernel
     nx,ny = true_imgs[0].shape
     nh = [5, 5]
-    hz = np.exp(-0.01 * np.linspace(-(nh[0] // 2), nh[0] // 2, nh[0]) ** 2)
-    hx = np.exp(-0.01 * np.linspace(-(nh[1] // 2), nh[1] // 2, nh[1]) ** 2)
+    hz = np.exp(-0.05 * np.linspace(-(nh[0] // 2), nh[0] // 2, nh[0]) ** 2)
+    hx = np.exp(-0.05 * np.linspace(-(nh[1] // 2), nh[1] // 2, nh[1]) ** 2)
     hz /= np.trapz(hz)  # normalize the integral to 1
     hx /= np.trapz(hx)  # normalize the integral to 1
     kernel = hz[:, np.newaxis] * hx[np.newaxis, :]
+    # kernel = np.array([[0.0, 0.1, 0.0],[0.0, 0.8, 0.0],[0.0, 0.1, 0.0]])
+    # print(kernel)
     # Convolution Operator
     ConvOp = Convolve2D((nx, ny),h=kernel, offset=(nh[0] // 2, nh[1] // 2), dtype='float64')
     print(f'Convolution Operator: {ConvOp.shape}')
@@ -65,8 +67,13 @@ def load_training_data_deblurring(ds_dir,num_training_data:int=1, lost_domain_si
             img = np.array(Image.open(join(true_imgs_dir,img_path)).convert('L'))
             img = img / np.amax(img)
             blur = (ConvOp*img.ravel()).reshape(nx,ny)
-            # noise = np.random.normal(loc=0,scale=0.01,size=img.shape)
-            # noisy = np.clip(img+noise,0,1)
-            noisy_imgs.append(blur)
+            blur = blur / np.amax(blur)
+            blur = np.clip(blur,0,1)
+            np.random.seed(1234)
+            noise = np.random.normal(loc=0,scale=0.01,size=img.shape)
+            noisy = blur+noise
+            noisy = noisy/np.amax(noisy)
+            noisy = np.clip(noisy,0,1)
+            noisy_imgs.append(noisy)
     return len(true_imgs), true_imgs, noisy_imgs, ConvOp
     

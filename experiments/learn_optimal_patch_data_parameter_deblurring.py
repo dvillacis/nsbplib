@@ -34,7 +34,11 @@ size_training_set = args.size_training_set
 
 upper_level_problem = UpperPatchDataLearningDeblurring(ds_dir=dataset_dir,px=args.patch_size,py=args.patch_size,num_training_data=size_training_set,verbose=True)
 
-x0 = load_start_parameter(10.0,px=args.patch_size,py=args.patch_size)
+prev_p = int(args.patch_size / 2)
+
+# x0 = load_start_parameter(f'raw_output/faces_medium_px{prev_p}_py{prev_p}_deblurring/1/faces_medium_px{prev_p}_py{prev_p}_deblurring_optimal_par.npy',px=args.patch_size,py=args.patch_size)
+x0 = load_start_parameter(100.0,px=args.patch_size,py=args.patch_size)
+# x0 = load_start_parameter(1452.5,px=args.patch_size,py=args.patch_size)
 
 # Solve the problem
 evals,sol = nstrbox_solve(upper_level_problem,x0,verbose=True)

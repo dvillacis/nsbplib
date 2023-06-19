@@ -30,10 +30,10 @@ size_training_set = args.size_training_set
 
 upper_level_problem = UpperScalarDataLearningDeblurring(ds_dir=dataset_dir,num_training_data=size_training_set,verbose=True)
 
-x0 = load_start_parameter(10.0)
+x0 = load_start_parameter(1.0)
 
 # Solve the problem
-evals,sol = nstrbox_solve(upper_level_problem,x0,verbose=True)
+evals,sol = nstrbox_solve(upper_level_problem,x0,verbose=True,max_radius=10000)
 true_imgs, noisy_imgs, recons = upper_level_problem.get_training_data()
 extra_data = {'true_imgs':true_imgs,'noisy_imgs':noisy_imgs,'recons':recons}
 

@@ -58,11 +58,12 @@ class ROFSolver_2D(object):
     
 class TVDeblurring(object):
     
-    def __init__(self,data,K,R) -> None:
+    def __init__(self,data,K,R,maxiter=1000) -> None:
         self.data = data
         self.K = K
         self.R = R # Define the Blurring Operator
         self.L = 8.0
+        self.maxiter = maxiter
         
     def solve(self,data_par:Patch,reg_par:Patch):
         # print(f'Inpainting: {data_par.data.shape} {reg_par.data.shape}')
@@ -72,5 +73,6 @@ class TVDeblurring(object):
         l21 = SDL21(ndim=2,sigma=reg_par.ravel())
         tau = 1.0 / np.sqrt(self.L)
         mu = 1.0 / (tau*self.L)
-        rec = PrimalDual(l2,l21,self.K,tau=tau,mu=mu,theta=1.0,x0=np.zeros_like(self.data.ravel()),niter=1000)
-        return rec.reshape(self.data.shape)
+        rec = PrimalDual(l2,l21,self.K,tau=tau,mu=mu,theta=1.0,x0=np.zeros_like(self.data.ravel()),niter=self.maxiter,show=False)
+        rec = rec.reshape(self.data.shape)
+        return rec

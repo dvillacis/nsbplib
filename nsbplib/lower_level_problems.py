@@ -80,8 +80,8 @@ class LowerScalarDataLearning_2D(LowerLevelProblem):
         reg_par = Patch(np.ones(self.px*self.py),self.px,self.py)
         self.recon = self.solver.solve(data_par=data_par,reg_par=reg_par)
     
-    def loss(self, true_data):
-        return np.linalg.norm(self.recon-true_data)**2
+    def loss(self, true_data, param):
+        return 0.5 * np.linalg.norm(self.recon-true_data)**2
     
     def grad(self, true_data, param):
         data_par = Patch(param,self.px,self.py)
@@ -137,8 +137,8 @@ class LowerPatchDataLearning_2D(LowerLevelProblem):
         reg_par = Patch(np.ones(self.px*self.py),self.px,self.py)
         self.recon = self.solver.solve(data_par=data_par,reg_par=reg_par)
     
-    def loss(self, true_data):
-        return np.linalg.norm(self.recon-true_data)**2
+    def loss(self, true_data, param):
+        return 0.5 * np.linalg.norm(self.recon-true_data)**2
     
     def grad(self, true_data, param):
         data_par = Patch(param,self.px,self.py)
@@ -195,8 +195,8 @@ class LowerPatchRegLearning_2D(LowerLevelProblem):
         self.recon = self.solver.solve(data_par=data_par,reg_par=reg_par)
         #print(f'rec:{self.recon}\npar:{param}')
     
-    def loss(self, true_data):
-        return np.linalg.norm(self.recon-true_data)**2
+    def loss(self, true_data, param):
+        return 0.5 * np.linalg.norm(self.recon-true_data)**2
     
     def grad(self, true_data, param):
         reg_par = Patch(param,self.px,self.py)
@@ -275,8 +275,8 @@ class LowerScalarRegLearning_2D(LowerLevelProblem):
         self.recon = self.solver.solve(data_par=data_par,reg_par=reg_par)
         # print(f'rec:{self.recon}\npar:{param}')
     
-    def loss(self, true_data):
-        return np.linalg.norm(self.recon-true_data)**2
+    def loss(self, true_data, param):
+        return 0.5 * np.linalg.norm(self.recon-true_data)**2
     
     def grad(self, true_data, param):
         reg_par = Patch(param,self.px,self.py)
@@ -359,8 +359,10 @@ class LowerScalarDataLearningDeblurring_2D(LowerLevelProblem):
         self.px = 1
         self.py = 1
         self.Op = Op
-        self.OpTOp = self.Op.T*self.Op
+        # self.OpTOp = self.Op.T*self.Op
+        print(f'data:{data.shape},K:{self.K.shape},Op:{self.Op.shape}')
         self.solver = TVDeblurring(data,self.K,self.Op)
+        self.tik = 0.0
         super().__init__(data, label)
     
     def __call__(self, param):
@@ -372,8 +374,9 @@ class LowerScalarDataLearningDeblurring_2D(LowerLevelProblem):
         reg_par = Patch(np.ones(self.px*self.py),self.px,self.py)
         self.recon = self.solver.solve(data_par=data_par,reg_par=reg_par)
     
-    def loss(self, true_data):
-        return np.linalg.norm(self.recon-true_data)**2
+    def loss(self, true_data, param):
+        print(f'param:{param}')
+        return 0.5* np.linalg.norm(self.recon.ravel()-true_data.ravel())**2 + 0.5 * self.tik * param**2
     
     def grad(self, true_data, param):
         data_par = Patch(param,self.px,self.py)
@@ -385,16 +388,17 @@ class LowerScalarDataLearningDeblurring_2D(LowerLevelProblem):
         Inact = InactiveOp(self.K,self.recon)
         A = Block([[L,self.K.adjoint()],[Act*self.K-Inact*T,Inact+1e-12*Act]])
         b = np.concatenate((self.recon.ravel()-true_data.ravel(),np.zeros(m)))
-        p = spla.spsolve(A.tosparse(),b)[:n]
-        # p,exit_code = spla.gmres(A,b)
-        # if exit_code != 0:
-        #     print(f'Conjugate gradient for calculating proximal did not converge: {exit_code}')
-        # p = p[:n]
+        # p = spla.spsolve(A.tosparse(),b)[:n]
+        p,exit_code = spla.gmres(A,b,maxiter=20)
+        if exit_code != 0:
+            print(f'Warning: GMRES for calculating hypergradient did not converge: {exit_code}')
+        p = p[:n]
         L2 = Diagonal(self.Op * p)
         g = L2*(self.Op * self.recon.ravel() - self.data.ravel())
         g = data_par.reduce_from_img(g.reshape(true_data.shape)[:-1,:-1])
-        return -g
-    
+        return -g - self.tik * param
+        # return -g
+            
     def smooth_grad(self, true_data, param):
         data_par = Patch(param,self.px,self.py)
         parameter = data_par.map_to_img(true_data)
@@ -404,15 +408,16 @@ class LowerScalarDataLearningDeblurring_2D(LowerLevelProblem):
         Id = Identity(m)
         A = Block([[L,self.K.adjoint()],[-T,Id]])
         b = np.concatenate((self.recon.ravel()-true_data.ravel(),np.zeros(m)))
-        p = spla.spsolve(A.tosparse(),b)[:n]
-        # p,exit_code = spla.gmres(A,b)
-        # if exit_code != 0:
-        #     print(f'Conjugate gradient for calculating proximal did not converge: {exit_code}')
-        # p = p[:n]
+        # p = spla.spsolve(A.tosparse(),b)[:n]
+        p,exit_code = spla.gmres(A,b,maxiter=20)
+        if exit_code != 0:
+            print(f'Warning: GMRES for calculating hypergradient did not converge: {exit_code}')
+        p = p[:n]
         L2 = Diagonal(self.Op * p)
         grad = L2*(self.Op * self.recon.ravel()-self.data.ravel())
         grad = data_par.reduce_from_img(grad.reshape(true_data.shape)[:-1,:-1])
-        return -grad
+        return -grad - self.tik * param
+        # return -grad / np.linalg.norm(grad)
     
 class LowerPatchDataLearningDeblurring_2D(LowerLevelProblem):
     def __init__(self, data, label, Op:Convolve2D, px, py):
@@ -423,8 +428,9 @@ class LowerPatchDataLearningDeblurring_2D(LowerLevelProblem):
         self.py = py
         self.Op = Op
         self.solver = TVDeblurring(data,self.K,self.Op)
+        self.tik = 0.0
         super().__init__(data, label)
-        # self.data = data.ravel()
+        
     
     def __call__(self, param):
         """
@@ -435,8 +441,8 @@ class LowerPatchDataLearningDeblurring_2D(LowerLevelProblem):
         reg_par = Patch(np.ones(self.px*self.py),self.px,self.py)
         self.recon = self.solver.solve(data_par=data_par,reg_par=reg_par)
     
-    def loss(self, true_data):
-        return np.linalg.norm(self.recon-true_data)**2
+    def loss(self, true_data, param):
+        return 0.5 * np.linalg.norm(self.recon.ravel()-true_data.ravel())**2 + 0.5 * self.tik * np.linalg.norm(param)**2
     
     def grad(self, true_data, param):
         data_par = Patch(param,self.px,self.py)
@@ -446,20 +452,18 @@ class LowerPatchDataLearningDeblurring_2D(LowerLevelProblem):
         T = TOp(self.Kx,self.Ky,self.recon)
         Act = ActiveOp(self.K,self.recon)
         Inact = InactiveOp(self.K,self.recon)
-        A = Block([[L,self.K.adjoint()],[Act*self.K-Inact*T,Inact+1e-8*Act]])
+        A = Block([[L,self.K.adjoint()],[Act*self.K-Inact*T,Inact+1e-12*Act]])
         b = np.concatenate((self.recon.ravel()-true_data.ravel(),np.zeros(m)))
-        p = spla.spsolve(A.tosparse(),b)[:n]
-        # p,exit_code = spla.gmres(A,b,maxiter=2000)
-        # if exit_code != 0:
-        #     print(f'GMRES for calculating proximal did not converge: {exit_code}')
-        # p = p[:n]
-        #p,exit_code = spla.qmr(A,b)[:n]
-        #print(exit_code)
-        # print(f'self.data:{self.data.shape}')
-        L2 = Diagonal(self.Op * p)
+        # p = spla.spsolve(A.tosparse(),b)[:n]
+        p,exit_code = spla.gmres(A,b,maxiter=200)
+        if exit_code != 0:
+            print(f'Warning: GMRES for calculating hypergradient did not converge: {exit_code}')
+        p = p[:n]
+        L2 = Diagonal(self.Op * p).T
         g = L2*(self.Op * self.recon.ravel() - self.data.ravel())
         g = data_par.reduce_from_img(g.reshape(true_data.shape))
-        return -g
+        return -g - self.tik * param
+        # return -100.0*g/np.linalg.norm(g)
     
     def smooth_grad(self, true_data, param):
         data_par = Patch(param,self.px,self.py)
@@ -470,12 +474,13 @@ class LowerPatchDataLearningDeblurring_2D(LowerLevelProblem):
         Id = Identity(m)
         A = Block([[L,self.K.adjoint()],[-T,Id]])
         b = np.concatenate((self.recon.ravel()-true_data.ravel(),np.zeros(m)))
-        p = spla.spsolve(A.tosparse(),b)[:n]
-        # p,exit_code = spla.gmres(A,b,maxiter=1000)
-        # if exit_code != 0:
-        #     print(f'GMRES for calculating proximal did not converge: {exit_code}')
-        # p = p[:n]
-        L2 = Diagonal(self.Op * p)
+        # p = spla.spsolve(A.tosparse(),b)[:n]
+        p,exit_code = spla.gmres(A,b,maxiter=200)
+        if exit_code != 0:
+            print(f'Warning: GMRES for calculating hypergradient did not converge: {exit_code}')
+        p = p[:n]
+        L2 = Diagonal(self.Op * p).T
         grad = L2*(self.Op * self.recon.ravel()-self.data.ravel())
         grad = data_par.reduce_from_img(grad.reshape(true_data.shape))
-        return -grad
+        return -grad - self.tik * param
+        # return -100.0*grad/np.linalg.norm(grad)

@@ -29,7 +29,7 @@ class UpperLevelProblem(object):
             
         for i in range(self.nsamples):
             self.lower_level_problems[i](param)
-            resid[i] = self.lower_level_problems[i].loss(self.true_imgs[i])
+            resid[i] = self.lower_level_problems[i].loss(self.true_imgs[i],param)
             if smooth:
                 grads[i,:] = self.lower_level_problems[i].smooth_grad(self.true_imgs[i],param)
             else:

@@ -78,7 +78,7 @@ def solve(
     verbose=False,
     initial_radius=1.0,
     threshold_radius=1e-4,
-    max_radius=100,
+    max_radius=1000,
     max_nfev=2000,
     xtol=1e-9,
     ftol=1e-9,
@@ -108,6 +108,7 @@ def solve(
     njev += 1
     nfev += 1
     f,g = upper_level_problem(x)
+    g0 = np.copy(g)
     print_header()
     print_iteration(iteration,nfev,f,0,0,np.linalg.norm(g),radius,np.linalg.cond(B.get_matrix()))
     
@@ -125,6 +126,7 @@ def solve(
         sl = -x - 1e-9
         su = 1e9 - x
         sl = np.where(sl < 0, sl, -sl)
+        
         s = trustregion.solve(g,B.get_matrix(),radius,sl=sl,su=su)
         s_norm = np.linalg.norm(s)
         x_ = x + s
